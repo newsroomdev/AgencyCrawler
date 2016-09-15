@@ -1,6 +1,7 @@
 require 'uri'
 require 'net/http'
 require 'google_custom_search_api'
+require 'typhoeus'
 
 class Agency
   attr_reader :name, :id, :website, :valid, :status, :seo, :suggestions
@@ -26,7 +27,8 @@ class Agency
   end
 
   def santize_website(website)
-    puts 'site:', website
+    p "#{@name}"
+    p "#{website}"
     @valid = self.is_valid?(website)
     if @valid
       @website = @website
@@ -37,28 +39,15 @@ class Agency
   end
 
   def check_status(website)
-    begin
-      uri = URI.parse(website)
-      http = Net::HTTP.new(uri.host, uri.port)
-      res = http.request(Net::HTTP::Get.new(uri.request_uri))
-      @status = case res.code.to_i
-               when 200 || 201
-                 [:success]
-               when (400..499)
-                 [:bad_request]
-               when (500..599)
-                 [:server_problems]
-               else
-                 [res.code.to_i]
-               end
-    rescue SocketError => e
-      puts "Exception: #{e}"
-    end
+    req = Typhoeus.get(website, followlocation: true)
+    @valid = req.success?
+    @status = req.code
+    p "  status: #{@status}"
     # check_seo(@name)
   end
 
   def check_seo(name)
     if !@valid then @seo = false end
-    search_results = GoogleCustomSearchApi.search(name) 
+    @search_results = GoogleCustomSearchApi.search(name) 
   end
 end
